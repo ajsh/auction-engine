@@ -18,10 +18,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Ensure repo root is on the path so engine.* imports work whether invoked as
+# `python engine/pipeline.py` or `python -m engine.pipeline`
+_repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 from engine.models import AuctionListing
 from engine.scorer import enrich_and_score, apply_filters, get_top_deals
+from engine.evaluator import evaluate_all
+from engine.sheets_eval import write_evaluations
 import config.settings as cfg
 
 # Lazy imports to avoid crashing if a scraper dependency is missing
@@ -180,8 +186,6 @@ def run_pipeline(
     # ── Step 7: Deal evaluation ────────────────────────────────────────────
     try:
         logger.info("\n🧮 Step 7: Running deal evaluations...")
-        from engine.evaluator import evaluate_all
-        from engine.sheets_eval import write_evaluations
         eval_results = evaluate_all(top)
         # Attach verdict to each listing so the email can display it
         for listing, ev in eval_results:
