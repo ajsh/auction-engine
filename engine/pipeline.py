@@ -177,7 +177,23 @@ def run_pipeline(
         logger.error(f"   ❌ {msg}")
         summary["errors"].append(msg)
 
-    # ── Step 7: Email alert ──────────────────────────────────────────────────
+    # ── Step 7: Deal evaluation ────────────────────────────────────────────
+    try:
+        logger.info("\n🧮 Step 7: Running deal evaluations...")
+        from engine.evaluator import evaluate_all
+        from engine.sheets_eval import write_evaluations
+        eval_results = evaluate_all(top)
+        # Attach verdict to each listing so the email can display it
+        for listing, ev in eval_results:
+            listing.verdict = ev.verdict
+        counts = write_evaluations(eval_results)
+        summary["eval_rows"] = counts.get("eval_rows", 0)
+        summary["script_rows"] = counts.get("script_rows", 0)
+        logger.info(f"   Eval rows: {summary['eval_rows']} | Call scripts: {summary['script_rows']}")
+    except Exception as e:
+        logger.warning(f"Eval step failed (non-fatal): {e}")
+
+    # ── Step 8: Email alert ──────────────────────────────────────────────────
     if top:
         logger.info("\n📧 Sending email digest...")
         try:
@@ -198,6 +214,7 @@ def run_pipeline(
     logger.info(f"   Filtered: {summary['total_filtered']}")
     logger.info(f"   Top deals: {len(top)}")
     logger.info(f"   Sheets: {summary['new_rows_written']} new rows")
+    logger.info(f"   Evals: {summary.get('eval_rows', 0)} rows | Scripts: {summary.get('script_rows', 0)} rows")
     logger.info(f"   Email: {'sent' if summary['email_sent'] else 'not sent'}")
     if summary["errors"]:
         logger.warning(f"   Errors: {summary['errors']}")

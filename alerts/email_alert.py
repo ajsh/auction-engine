@@ -49,6 +49,22 @@ def _action_badge(action: str) -> str:
     )
 
 
+def _verdict_badge(verdict: str) -> str:
+    colors = {
+        "BID":         ("#fff", "#22c55e"),
+        "INVESTIGATE": ("#fff", "#f97316"),
+        "PASS":        ("#fff", "#ef4444"),
+    }
+    fg, bg = colors.get(verdict, ("", ""))
+    if not bg:
+        return ""
+    return (
+        f'<span style="background:{bg};color:{fg};padding:3px 10px;'
+        f'border-radius:12px;font-weight:bold;font-size:0.85em;'
+        f'margin-left:6px;">{verdict}</span>'
+    )
+
+
 def _score_color(score: float) -> str:
     if score >= 8:
         return "#28a745"
@@ -116,6 +132,7 @@ def _build_html(listings: List[AuctionListing], total_scraped: int) -> str:
                   <!-- Badges row -->
                   <div style="margin-top:10px;">
                     {_action_badge(l.action)}
+                    {_verdict_badge(getattr(l, 'verdict', '')) if hasattr(l, 'verdict') else ''}
                     &nbsp;
                     <span style="font-size:0.82em;color:#666;">
                       📅 {l.auction_date or "N/A"} &nbsp;|&nbsp;
@@ -218,7 +235,8 @@ def _build_plaintext(listings: List[AuctionListing], total_scraped: int) -> str:
         lines.append(f"\n#{i} — {l.location or l.title}, {l.city}")
         lines.append(f"   {l.property_type} | {l.bank_name}")
         lines.append(f"   Auction: {_format_inr(l.reserve_price)} | Market: {_format_inr(l.market_price)}")
-        lines.append(f"   Discount: {discount_str} | Score: {l.final_score}/10 | {l.action}")
+        verdict_str = f" | Verdict: {l.verdict}" if hasattr(l, 'verdict') and l.verdict else ""
+        lines.append(f"   Discount: {discount_str} | Score: {l.final_score}/10 | {l.action}{verdict_str}")
         lines.append(f"   Date: {l.auction_date} | Possession: {l.possession}")
         if l.source_url:
             lines.append(f"   Link: {l.source_url}")
