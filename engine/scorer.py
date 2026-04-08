@@ -113,7 +113,18 @@ def enrich_and_score(listings: List[AuctionListing]) -> List[AuctionListing]:
         l.risk_score      = _infer_risk(l)
         l.location_score  = _infer_location_score(l)
         l.competition     = _infer_competition(l)
-        l.compute_score(weights)
+        # For listings without price data (SBI/PNB batch notices),
+        # use location+risk+liquidity only — skip discount weight
+        if l.discount_pct is None and l.reserve_price is None:
+            no_price_weights = {
+                "discount":  0.0,
+                "liquidity": cfg.WEIGHT_LIQUIDITY + 0.10,
+                "risk":      cfg.WEIGHT_RISK + 0.10,
+                "location":  cfg.WEIGHT_LOCATION + 0.10,
+            }
+            l.compute_score(no_price_weights)
+        else:
+            l.compute_score(weights)
     return listings
 
 
@@ -134,17 +145,17 @@ def apply_filters(listings: List[AuctionListing]) -> List[AuctionListing]:
         if not city_match:
             continue
 
-        # Price filter
+        # Price filter (only apply if price is known)
         if l.reserve_price:
             if l.reserve_price < price_min or l.reserve_price > price_max:
                 continue
 
-        # Auction date filter
+        # Auction date filter (only apply if date is known)
         if l.auction_date:
             if l.auction_date < today or l.auction_date > cutoff:
                 continue
 
-        # Discount filter
+        # Discount filter (only apply if both prices are known)
         if l.discount_pct is not None and l.discount_pct < cfg.MIN_DISCOUNT_PCT:
             continue
 
