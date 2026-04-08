@@ -79,18 +79,25 @@ def _get_service():
         return None
 
 
+def _sheet_range(sheet_name: str, range_str: str) -> str:
+    """Wrap sheet name in single quotes if it contains spaces, then append range."""
+    if " " in sheet_name:
+        return f"'{sheet_name}'!{range_str}"
+    return f"{sheet_name}!{range_str}"
+
+
 def _ensure_header_row(service, spreadsheet_id: str, sheet_name: str):
     """Create header row if the sheet is empty."""
     try:
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range=f"{sheet_name}!A1:U1",
+            range=_sheet_range(sheet_name, "A1:U1"),
         ).execute()
         existing = result.get("values", [])
         if not existing:
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
-                range=f"{sheet_name}!A1",
+                range=_sheet_range(sheet_name, "A1"),
                 valueInputOption="RAW",
                 body={"values": [SHEET_HEADERS]},
             ).execute()
@@ -104,7 +111,7 @@ def _get_existing_ids(service, spreadsheet_id: str, sheet_name: str) -> set:
     try:
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range=f"{sheet_name}!U:U",  # Source URL column
+            range=_sheet_range(sheet_name, "U:U"),
         ).execute()
         values = result.get("values", [])
         return {row[0] for row in values if row}
@@ -218,7 +225,7 @@ def upsert_listings(listings: List[AuctionListing]) -> int:
         try:
             service.spreadsheets().values().append(
                 spreadsheetId=spreadsheet_id,
-                range=f"{sheet_name}!A:U",
+                range=_sheet_range(sheet_name, "A:U"),
                 valueInputOption="USER_ENTERED",
                 insertDataOption="INSERT_ROWS",
                 body={"values": chunk},
