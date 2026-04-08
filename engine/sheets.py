@@ -80,9 +80,9 @@ def _get_service():
 
 
 def _sheet_range(sheet_name: str, range_str: str) -> str:
-    """Wrap sheet name in single quotes if it contains spaces, then append range."""
-    if " " in sheet_name:
-        return f"'{sheet_name}'!{range_str}"
+    """Build a Sheets API A1 range string."""
+    # The google-api-python-client handles URL-encoding internally,
+    # so we pass the name as-is (no manual quoting needed).
     return f"{sheet_name}!{range_str}"
 
 
