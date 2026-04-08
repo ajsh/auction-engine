@@ -36,6 +36,9 @@ jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
 
     steps:
       - name: Checkout repository
@@ -62,20 +65,23 @@ jobs:
 
       - name: Run auction engine
         env:
-          SMTP_USER:     ${{ secrets.SMTP_USER }}
-          SMTP_PASS:     ${{ secrets.SMTP_PASS }}
-          ALERT_EMAIL:   ${{ secrets.ALERT_EMAIL }}
+          SMTP_USER:      ${{ secrets.SMTP_USER }}
+          SMTP_PASS:      ${{ secrets.SMTP_PASS }}
+          ALERT_EMAIL:    ${{ secrets.ALERT_EMAIL }}
           SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
-          IBAPI_PROXY:   ${{ secrets.IBAPI_PROXY }}
+          IBAPI_PROXY:    ${{ secrets.IBAPI_PROXY }}
         run: |
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
           SOURCES="${{ github.event.inputs.sources || 'banke sbi pnb ibapi mstc' }}"
-          
+
           ARGS=""
           [ "$DRY_RUN" = "true" ] && ARGS="$ARGS --dry-run"
-          [ -n "$SOURCES" ] && ARGS="$ARGS --sources $SOURCES"
-          
-          python scheduler.py --once $ARGS
+          if [ -n "$SOURCES" ]; then
+            ARGS="$ARGS --sources"
+            for s in $SOURCES; do ARGS="$ARGS $s"; done
+          fi
+
+          python engine/pipeline.py $ARGS
 
       - name: Upload run artifacts
         if: always()
@@ -89,13 +95,5 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `⚠️ Auction Engine failed — Run #${context.runNumber}`,
-              body: `Pipeline failed at ${new Date().toISOString()}. Check [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`,
-              labels: ['bug', 'automation']
-            })
+        run: |
+          echo "::warning::Pipeline failed on run #${{ github.run_number }} at $(date -u). Check the Actions tab for logs."

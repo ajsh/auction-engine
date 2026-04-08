@@ -1,17 +1,21 @@
 """
 Auction Engine — Central Configuration
 Edit this file to customize your targets, filters, and alerts.
+
+Secrets (SMTP_PASS, SMTP_USER, ALERT_EMAIL, SPREADSHEET_ID, IBAPI_PROXY)
+can also be overridden via environment variables — used by GitHub Actions.
 """
+import os
 
 # ─── ALERT EMAIL ────────────────────────────────────────────────────────────
-ALERT_EMAIL = "arshaharjun@gmail.com"          # Where to send daily deal summaries
-SMTP_USER   = "arshaharjun@gmail.com"          # Gmail address for sending alerts
-SMTP_PASS   = "nspi oqdg dfsg yvhq"           # Gmail App Password
+ALERT_EMAIL = os.environ.get("ALERT_EMAIL",    "arshaharjun@gmail.com")
+SMTP_USER   = os.environ.get("SMTP_USER",      "arshaharjun@gmail.com")
+SMTP_PASS   = os.environ.get("SMTP_PASS",      "nspi oqdg dfsg yvhq")
 
 # ─── GOOGLE SHEETS ──────────────────────────────────────────────────────────
 GOOGLE_SHEETS_ENABLED  = True
 GOOGLE_CREDENTIALS_FILE = "config/google_credentials.json"  # Service account JSON
-SPREADSHEET_ID         = "1uSxiopClCQ0FfjM8zNWymnRa3dQkZkbrJiVtLzXUQzQ"  # From Sheet URL
+SPREADSHEET_ID         = os.environ.get("SPREADSHEET_ID", "1uSxiopClCQ0FfjM8zNWymnRa3dQkZkbrJiVtLzXUQzQ")
 SHEET_NAME             = "AUCTION ENGINE"
 
 # ─── DEAL FILTERS ───────────────────────────────────────────────────────────
