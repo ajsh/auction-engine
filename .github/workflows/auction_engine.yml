@@ -81,7 +81,7 @@ jobs:
             for s in $SOURCES; do ARGS="$ARGS $s"; done
           fi
 
-          python engine/pipeline.py $ARGS
+          python -m engine.pipeline $ARGS
 
       - name: Upload run artifacts
         if: always()
