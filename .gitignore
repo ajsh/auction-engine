@@ -1,0 +1,11 @@
+config/google_credentials.json
+data/
+logs/
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+*.pyc
+.env
+*.egg-info/
+.DS_Store
+chromedriver

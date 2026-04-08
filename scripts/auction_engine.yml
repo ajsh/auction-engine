@@ -1,0 +1,101 @@
+# GitHub Actions Workflow — Auction Engine
+# Runs the full pipeline twice daily at 9 AM and 6 PM IST (3:30 AM and 12:30 PM UTC)
+# 
+# Setup:
+#   1. Push this repo to GitHub (private repo recommended)
+#   2. Add GitHub Secrets (repo Settings → Secrets and variables → Actions):
+#      - SMTP_USER          → your Gmail address
+#      - SMTP_PASS          → your Gmail App Password
+#      - ALERT_EMAIL        → where to send alerts
+#      - GOOGLE_CREDENTIALS → paste content of google_credentials.json
+#      - SPREADSHEET_ID     → your Google Sheet ID
+#      - IBAPI_PROXY        → (optional) residential proxy URL
+#   3. GitHub Actions will run automatically on schedule
+
+name: Auction Engine — Daily Run
+
+on:
+  schedule:
+    # 9:00 AM IST  = 3:30 AM UTC
+    - cron: "30 3 * * *"
+    # 6:00 PM IST  = 12:30 PM UTC
+    - cron: "30 12 * * *"
+  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no email/sheets)"
+        required: false
+        default: "false"
+      sources:
+        description: "Sources (space-separated: banke sbi pnb ibapi mstc)"
+        required: false
+        default: "banke sbi pnb ibapi mstc"
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Chrome + ChromeDriver
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Write Google credentials
+        run: |
+          echo '${{ secrets.GOOGLE_CREDENTIALS }}' > config/google_credentials.json
+
+      - name: Run auction engine
+        env:
+          SMTP_USER:     ${{ secrets.SMTP_USER }}
+          SMTP_PASS:     ${{ secrets.SMTP_PASS }}
+          ALERT_EMAIL:   ${{ secrets.ALERT_EMAIL }}
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          IBAPI_PROXY:   ${{ secrets.IBAPI_PROXY }}
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+          SOURCES="${{ github.event.inputs.sources || 'banke sbi pnb ibapi mstc' }}"
+          
+          ARGS=""
+          [ "$DRY_RUN" = "true" ] && ARGS="$ARGS --dry-run"
+          [ -n "$SOURCES" ] && ARGS="$ARGS --sources $SOURCES"
+          
+          python scheduler.py --once $ARGS
+
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auction-run-${{ github.run_number }}
+          path: |
+            data/
+            logs/
+          retention-days: 30
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⚠️ Auction Engine failed — Run #${context.runNumber}`,
+              body: `Pipeline failed at ${new Date().toISOString()}. Check [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`,
+              labels: ['bug', 'automation']
+            })
